@@ -1,8 +1,5 @@
-/*$fa=($preview)?$fa:1;
-$fs=($preview)?$fs:1;*/
-
 //This module creates a segment of the pipe to be composed
-module pipeSegment(r1e=4, r1i=3, r2e=4, r2i=3, h=1){
+module pipeSegment(r1e = 4, r1i = 3, r2e = 4, r2i = 3, h = [0,0,1], theta = 0){
     //All functions are kept inside the module for encapsulation
     //returns the number of segments a circle must be cut.
     function nOfFaces(r) = (
@@ -11,17 +8,21 @@ module pipeSegment(r1e=4, r1i=3, r2e=4, r2i=3, h=1){
     );
 
     //returns a list of points on the plane XY that make a circle
-    function circularFace(r)=[
-        for (i = [0:360/nOfFaces(r):360-360/nOfFaces(r)/2]) 
+    function circularFace(r) = let(stepAngle = 360 / nOfFaces(r)) [
+        for (i = [0:stepAngle:360-stepAngle/2]) 
             r * [cos(i),sin(i),0]
     ];
 
     //This function creates triangles that connect two circular lines
-    function generateFaces(L1Str, L1End, L2Str, L2End) = [
+    function generateFaces(L1Str, L1End, L2Str, L2End) = 
+        let(
+            Scale1 = (L2End - L2Str + 1) / (L1End - L1Str + 1),
+            Scale2 = (L1End - L1Str + 1) / (L2End - L2Str + 1)
+        ) [
         for (i = [L1Str:L1End-1]) [
             i + 1,
             i,
-            L2Str + ceil((i - L1Str + 1) * (L2End - L2Str + 1) / (L1End - L1Str + 1)) - 1
+            L2Str + ceil((i - L1Str + 1) * Scale1) - 1
         ],
         [
             L1Str,
@@ -31,7 +32,7 @@ module pipeSegment(r1e=4, r1i=3, r2e=4, r2i=3, h=1){
         for (i = [L2Str:L2End-1]) [
             i,
             i + 1,
-            L1Str + floor((i - L2Str + 1) * (L1End - L1Str + 1) / (L2End - L2Str + 1)) 
+            L1Str + floor((i - L2Str + 1) * Scale2) 
         ],
         [
             L2End,
@@ -57,12 +58,18 @@ module pipeSegment(r1e=4, r1i=3, r2e=4, r2i=3, h=1){
     EndBI = StartTE - 1;
     EndTE = StartTI - 1;
     EndTI = StartTI + lenTI - 1;
+    H = (h[0] == undef) ? [0, 0 , h] : h;
+    rotationMatrix = [
+        [cos(theta), 0, sin(theta)],
+        [0, 1, 0],
+        [-sin(theta), 0, cos(theta)]
+    ];
     polyhedron(
         points = [
                     for (i = circularFace(r1e)) i,
                     for (i = circularFace(r1i)) i,
-                    for (i = circularFace(r2e)) i + [0,0,h],
-                    for (i = circularFace(r2i)) i + [0,0,h]
+                    for (i = circularFace(r2e)) rotationMatrix * i + H,
+                    for (i = circularFace(r2i)) rotationMatrix * i + H
                 ],
         faces = concat(
                     generateFaces(StartBI, EndBI, StartBE, EndBE),
@@ -73,31 +80,3 @@ module pipeSegment(r1e=4, r1i=3, r2e=4, r2i=3, h=1){
         convexity = 1
     );
 }
-
-$fa=1;
-$fs=1;
-
-//nautilusSegment();
-
-//Horn's length
-HornLength = 500;
-//Trought diameter
-HornTroughtRadius = 2;
-//Mouth diameter
-HornMouthRadius = 200;
-//Wall thickness
-Thickness = 1;
-
-RadiusFlare = ln(HornMouthRadius/HornTroughtRadius)/HornLength;
-for (x = [0 : $fs : HornLength - $fs]){
-    //echo(x);
-    R1i = HornTroughtRadius*exp(RadiusFlare*x);
-    R2i = HornTroughtRadius*exp(RadiusFlare*(x+$fs));
-    R1e = R1i + sqrt(pow(Thickness, 2)                  //pluss the thickness added to itself times the 
-              + pow(Thickness*RadiusFlare*R1i,2));      // derivative of the exponential
-    R2e = R2i + sqrt(pow(Thickness, 2)                  //pluss the thickness added to itself times the 
-              + pow(Thickness*RadiusFlare*R2i,2));      // derivative of the exponential
-    translate([0,0,x])
-        pipeSegment(R1e,R1i,R2e,R2i,$fs);
-}
-//*/
